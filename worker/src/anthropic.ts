@@ -7,7 +7,10 @@
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
-const MODEL = 'claude-sonnet-4-20250514'
+// Use the floating alias so we automatically pick up the current snapshot
+// when Anthropic refreshes Haiku 4.5. Override to a dated snapshot
+// (e.g. claude-haiku-4-5-20251001) if you want pinned behavior.
+const MODEL = 'claude-haiku-4-5'
 
 const SYSTEM_PROMPT = `You are parsing raw OCR text extracted from a receipt.
 Return only a JSON object with this exact shape:
