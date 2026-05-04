@@ -1,0 +1,40 @@
+---
+description: Unit, component, integration testing; mocking and coverage for this React app
+globs: **/*.{test,spec}.{ts,tsx}, **/__tests__/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# React testing standards
+
+## General
+
+- Tests must **survive refactoring** and fail only on real behavior changes.
+- Avoid brittle selectors (implementation-specific class names or DOM shape).
+
+## Unit tests
+
+- **Required** for business logic, hooks, and utilities.
+- Test **behavior**, not implementation details.
+- Structure: **Arrange / Act / Assert**.
+
+## Component tests
+
+- Use **React Testing Library**.
+- Assert what the **user sees and does**; do not assert internal state or implementation.
+
+## Integration tests
+
+- Cover **full flows** (UI + logic + API boundaries) and **critical user paths**.
+
+## Mocking
+
+- Mock only **external** dependencies (network, APIs, browser APIs).
+- **Do not** mock internal modules.
+
+## Coverage
+
+- **Minimum ~80%** overall; **~90%+** on critical paths.
+
+## PR reminder
+
+New logic ships with tests; keep mocks at boundaries.

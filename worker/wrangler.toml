@@ -1,0 +1,12 @@
+name = "expense-splitter-ocr"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+workers_dev = true
+
+# Public, non-secret config. Edit ALLOWED_EMAILS to grant access.
+# ANTHROPIC_API_KEY is a secret — set via `wrangler secret put` or CI.
+[vars]
+GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
+ALLOWED_EMAILS = "you@example.com"
+# Comma-separated list. Used for CORS Access-Control-Allow-Origin matching.
+ALLOWED_ORIGINS = "http://localhost:5173,https://your-username.github.io"

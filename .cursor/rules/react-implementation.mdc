@@ -1,0 +1,52 @@
+---
+description: Components, hooks, data layer, state, TypeScript, performance, lint/format for React src
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# React implementation standards
+
+## Components
+
+- Small, focused, reusable; **cap at ~200 lines**; split if larger.
+- Split **presentational** (UI) vs **container** (wiring logic) where it helps clarity.
+- **No business logic** in presentational UI components.
+- **Functional components only**; props strictly typed (**no `any`**).
+- Avoid deeply nested JSX—extract subcomponents.
+- Do not mutate props or state.
+
+## Hooks
+
+- Extract **custom hooks** when logic is reused or non-trivial.
+- Hooks contain **no JSX**.
+- Obey Rules of Hooks (top-level only, only inside React functions).
+- Focus hooks on orchestration: data, state, side effects.
+- Avoid unnecessary `useEffect`; prefer **derived state** when possible.
+
+## Data fetching
+
+- **Never** call APIs directly inside components.
+- All API calls go through a **service layer**; expose data via hooks (e.g. `useUserQuery`).
+- Centralize error handling.
+- Mock APIs only at boundaries in tests.
+
+## State management
+
+- **Local state** for UI-only concerns; **global state** only when necessary.
+- Don’t duplicate state—derive when possible; avoid deeply nested state objects.
+- Use **reducers** for complex state transitions.
+
+## Type safety
+
+- Strict TypeScript; avoid `any` unless unavoidable and isolated.
+- Prefer unions or const objects over enums where appropriate; use explicit unions for fixed sets of values.
+
+## Performance
+
+- No premature optimization; memoize only when measured or clearly needed.
+- Use stable props/callbacks to avoid needless re-renders.
+
+## Linting and formatting
+
+- Enforce ESLint + Prettier; no unused variables; no `console` in production code.
+- Consistent import ordering (match project ESLint config).

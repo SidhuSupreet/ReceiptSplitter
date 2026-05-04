@@ -1,0 +1,48 @@
+---
+description: Core React app principles, structure, clean code, PR gates, anti-patterns, definition of done
+alwaysApply: true
+---
+
+# React foundations (maintainability & extensibility)
+
+## Core principles
+
+- **Single responsibility**: each component, hook, and function does one thing.
+- **Separate concerns**: UI (components), logic (hooks), data (services).
+- Prefer readability over clever abstractions; keep code predictable and explicit.
+- Components and hooks must be **pure** during render (no side effects while rendering).
+
+## Project structure
+
+- **Feature-based** structure, not type-based (e.g. by domain/feature, not giant `components/` / `hooks/` trees).
+- Co-locate within each feature: components, hooks, services, types, and tests.
+- Avoid global `utils` unless truly shared across features.
+- Keep hierarchy **shallow** and intuitive.
+
+## Clean code
+
+- Descriptive names; functions short (<30 lines) and focused.
+- Prefer early returns over deep nesting; use named constants instead of magic numbers.
+- Prefer self-documenting code over noisy comments; eliminate duplication (DRY).
+
+## Extensibility
+
+- Prefer extension over modification; do not break existing behavior without justification.
+- Design for future changes (new fields, states, APIs); keep modules loosely coupled.
+
+## PR / change rules
+
+- Every change follows feature-based structure.
+- No large or multi-responsibility components; don’t introduce components >300 lines.
+- All **new business logic** must include tests; avoid duplication.
+- Code should be understandable within ~2 minutes of reading.
+
+## Anti-patterns (reject)
+
+- Business logic inside presentational UI; direct API calls in components.
+- Components exceeding ~300 lines; deep prop drilling (prefer hooks/context).
+- Overuse of `useEffect`; widespread `any`; missing tests for new logic.
+
+## Definition of done
+
+Readable, testable, strictly typed code; tests added and passing; no lint errors; no unjustified duplication; follows these rules.
