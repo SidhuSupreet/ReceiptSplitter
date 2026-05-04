@@ -6,7 +6,7 @@ workers_dev = true
 # Public, non-secret config. Edit ALLOWED_EMAILS to grant access.
 # ANTHROPIC_API_KEY is a secret — set via `wrangler secret put` or CI.
 [vars]
-GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
-ALLOWED_EMAILS = "you@example.com"
+GOOGLE_CLIENT_ID = "83580572408-mc52ogekctjdmg8tv87cksbp8dn25r2r.apps.googleusercontent.com"
+ALLOWED_EMAILS = "sidhusupreet0@gmail.com"
 # Comma-separated list. Used for CORS Access-Control-Allow-Origin matching.
-ALLOWED_ORIGINS = "http://localhost:5173,https://your-username.github.io"
+ALLOWED_ORIGINS = "http://localhost:5173,https://sidhusupreet.github.io"
