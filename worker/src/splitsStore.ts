@@ -21,9 +21,17 @@ export class SplitsStore {
     private readonly serviceAccountJson: string,
   ) {}
 
-  private range(columns: string): string {
-    const escaped = `'${this.tabName.replace(/'/g, "''")}'`
-    return `${escaped}!${columns}`
+  /**
+   * A1 range for the tab. Quotes are only for names with spaces/special chars;
+   * `'plain'!A:E` can make the API return "Unable to parse range".
+   */
+  private a1Range(columns: string): string {
+    const name = this.tabName.trim()
+    if (!name) return columns
+    const mustQuote =
+      /[\s']/.test(name) || !/^[A-Za-z0-9_]+$/.test(name) || /^(true|false|null)$/i.test(name)
+    const sheet = mustQuote ? `'${name.replace(/'/g, "''")}'` : name
+    return `${sheet}!${columns}`
   }
 
   private async sheetsFetch(
@@ -59,7 +67,7 @@ export class SplitsStore {
     const body = {
       values: [[shareId, ownerSub, ownerEmail, createdAt, payload]],
     }
-    const range = this.range('A:E')
+    const range = this.a1Range('A:E')
     const urlPath = `/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
     const res = await this.sheetsFetch(urlPath, {
       method: 'POST',
@@ -99,7 +107,7 @@ export class SplitsStore {
   }
 
   private async readAllDataRows(): Promise<string[][]> {
-    const range = this.range('A2:E')
+    const range = this.a1Range('A2:E')
     const path = `/values/${encodeURIComponent(range)}`
     const res = await this.sheetsFetch(path)
     if (!res.ok) {
