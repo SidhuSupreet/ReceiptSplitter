@@ -10,6 +10,8 @@ export type LineItem = {
   priceCents: number
   quantity: number
   assignedTo: string[]
+  /** When true, line still counts toward item splits but not toward tax/tip proration. */
+  excludeFromTaxTip?: boolean
 }
 
 export type Payment = {

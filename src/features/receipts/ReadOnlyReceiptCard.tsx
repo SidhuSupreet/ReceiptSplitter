@@ -63,6 +63,11 @@ export function ReadOnlyReceiptCard({ session, receipt }: ReadOnlyReceiptCardPro
                           × {item.quantity}
                         </span>
                       ) : null}
+                      {item.excludeFromTaxTip ? (
+                        <span className="ml-2 font-normal text-(--color-muted-foreground)">
+                          (off bill)
+                        </span>
+                      ) : null}
                     </span>
                     <span className="tabular-nums">{formatCents(lineTotal)}</span>
                   </div>

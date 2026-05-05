@@ -2,6 +2,7 @@ import { receiptSubtotal } from '@/features/receipts/receiptTotals'
 import type { Session } from '@/features/session/types'
 import { computeBalances } from '@/features/settlement/computeBalances'
 import { computeSettlements } from '@/features/settlement/computeSettlements'
+import { itemSubtotalsByPerson, taxTipProrationSubtotalsByPerson } from '@/features/settlement/itemSubtotalsByPerson'
 import { prorateExtras } from '@/features/settlement/prorateExtras'
 import { centsToDollars, splitEvenly } from '@/shared/utils/money'
 
@@ -48,20 +49,10 @@ export function buildExportData(session: Session): ExportData {
 
   for (const receipt of session.receipts) {
     const subtotal = receiptSubtotal(receipt)
-    const itemSubtotalsByPerson = new Map<string, number>()
-    for (const item of receipt.items) {
-      if (item.assignedTo.length === 0) continue
-      const lineTotal = item.priceCents * item.quantity
-      const parts = splitEvenly(lineTotal, item.assignedTo.length)
-      item.assignedTo.forEach((personId, i) => {
-        itemSubtotalsByPerson.set(
-          personId,
-          (itemSubtotalsByPerson.get(personId) ?? 0) + parts[i],
-        )
-      })
-    }
-    const taxByPerson = prorateExtras(itemSubtotalsByPerson, receipt.taxCents)
-    const tipByPerson = prorateExtras(itemSubtotalsByPerson, receipt.tipCents)
+    const itemSubtotals = itemSubtotalsByPerson(receipt)
+    const prorationBase = taxTipProrationSubtotalsByPerson(receipt)
+    const taxByPerson = prorateExtras(prorationBase, receipt.taxCents)
+    const tipByPerson = prorateExtras(prorationBase, receipt.tipCents)
     const personItemTotals = new Map<string, number>()
 
     for (const item of receipt.items) {
@@ -100,7 +91,7 @@ export function buildExportData(session: Session): ExportData {
     }
 
     // Append per-person tax/tip allocation row(s) for the receipt.
-    for (const personId of itemSubtotalsByPerson.keys()) {
+    for (const personId of itemSubtotals.keys()) {
       const person = peopleById.get(personId)
       if (!person) continue
       const tax = taxByPerson.get(personId) ?? 0

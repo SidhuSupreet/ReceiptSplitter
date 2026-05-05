@@ -1,27 +1,14 @@
-import type { PersonBalance, Receipt, Session } from '@/features/session/types'
-import { splitEvenly } from '@/shared/utils/money'
+import type { PersonBalance, Session } from '@/features/session/types'
 
+import { itemSubtotalsByPerson, taxTipProrationSubtotalsByPerson } from './itemSubtotalsByPerson'
 import { prorateExtras } from './prorateExtras'
-
-function shareItemsAcrossPeople(receipt: Receipt): Map<string, number> {
-  const subtotals = new Map<string, number>()
-  for (const item of receipt.items) {
-    if (item.assignedTo.length === 0) continue
-    const lineTotal = item.priceCents * item.quantity
-    const parts = splitEvenly(lineTotal, item.assignedTo.length)
-    item.assignedTo.forEach((personId, i) => {
-      subtotals.set(personId, (subtotals.get(personId) ?? 0) + parts[i])
-    })
-  }
-  return subtotals
-}
 
 /**
  * Computes per-person paid/owed/net balances across all receipts in the session.
  *
  * For each receipt:
  *   - Each item's price * quantity is split among its assigned people.
- *   - Tax + tip are prorated across those same people in proportion to their item subtotals.
+ *   - Tax + tip are prorated in proportion to bill item subtotals (lines not excluded).
  *   - Payments record what each person actually paid.
  *
  * Net = paid − owed (positive => they're owed money back).
@@ -38,8 +25,9 @@ export function computeBalances(session: Session): PersonBalance[] {
   }
 
   for (const receipt of session.receipts) {
-    const itemSubtotals = shareItemsAcrossPeople(receipt)
-    const extras = prorateExtras(itemSubtotals, receipt.taxCents + receipt.tipCents)
+    const itemSubtotals = itemSubtotalsByPerson(receipt)
+    const prorationBase = taxTipProrationSubtotalsByPerson(receipt)
+    const extras = prorateExtras(prorationBase, receipt.taxCents + receipt.tipCents)
 
     for (const [personId, sub] of itemSubtotals) {
       owed.set(personId, (owed.get(personId) ?? 0) + sub)

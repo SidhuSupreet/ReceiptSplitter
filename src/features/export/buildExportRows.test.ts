@@ -61,4 +61,49 @@ describe('buildExportData', () => {
     expect(data.settlementRows[0].From).toBe('Jordan')
     expect(data.settlementRows[0].To).toBe('Alex')
   })
+
+  it('allocates tax using on-bill items only for receipt totals row', () => {
+    const sessionOffBill: Session = {
+      id: 'sess',
+      createdAt: new Date(0).toISOString(),
+      people: [
+        { id: 'a', name: 'Alex' },
+        { id: 'b', name: 'Jordan' },
+      ],
+      receipts: [
+        {
+          id: 'r1',
+          label: 'Dinner',
+          items: [
+            {
+              id: 'i1',
+              receiptId: 'r1',
+              name: 'Burger',
+              priceCents: 6000,
+              quantity: 1,
+              assignedTo: ['a'],
+            },
+            {
+              id: 'i2',
+              receiptId: 'r1',
+              name: 'Side deal',
+              priceCents: 4000,
+              quantity: 1,
+              assignedTo: ['b'],
+              excludeFromTaxTip: true,
+            },
+          ],
+          taxCents: 1000,
+          tipCents: 0,
+          payments: [],
+        },
+      ],
+    }
+    const data = buildExportData(sessionOffBill)
+    const totals = data.itemRows.filter((r) => r.Item === '— receipt total —')
+    const alex = totals.find((r) => r.Person === 'Alex')!
+    const jordan = totals.find((r) => r.Person === 'Jordan')!
+    expect(alex['Tax Share']).toBe('10.00')
+    expect(jordan['Tax Share']).toBe('0.00')
+  })
 })

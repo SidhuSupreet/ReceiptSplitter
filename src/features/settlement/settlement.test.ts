@@ -197,6 +197,86 @@ describe('computeBalances + computeSettlements', () => {
     expect(balances.find((x) => x.personId === b.id)!.owedCents).toBe(4400)
   })
 
+  it('excludes off-bill lines from the tax/tip proration base', () => {
+    const [a, b] = makePeople('A', 'B')
+    const session = buildSession(
+      [a, b],
+      [
+        {
+          id: 'r',
+          label: 'Dinner',
+          items: [
+            {
+              id: 'i1',
+              receiptId: 'r',
+              name: "A's meal",
+              priceCents: 6000,
+              quantity: 1,
+              assignedTo: [a.id],
+            },
+            {
+              id: 'i2',
+              receiptId: 'r',
+              name: 'Extra not on receipt',
+              priceCents: 4000,
+              quantity: 1,
+              assignedTo: [b.id],
+              excludeFromTaxTip: true,
+            },
+          ],
+          taxCents: 1000,
+          tipCents: 0,
+          payments: [{ personId: a.id, amountCents: 11000 }],
+        },
+      ],
+    )
+    const balances = computeBalances(session)
+    expect(balances.find((x) => x.personId === a.id)!.owedCents).toBe(7000)
+    expect(balances.find((x) => x.personId === b.id)!.owedCents).toBe(4000)
+  })
+
+  it('splits tax evenly among assignees when every line is off-bill', () => {
+    const [a, b] = makePeople('A', 'B')
+    const session = buildSession(
+      [a, b],
+      [
+        {
+          id: 'r',
+          label: 'Split',
+          items: [
+            {
+              id: 'i1',
+              receiptId: 'r',
+              name: 'Cash to waiter',
+              priceCents: 5000,
+              quantity: 1,
+              assignedTo: [a.id],
+              excludeFromTaxTip: true,
+            },
+            {
+              id: 'i2',
+              receiptId: 'r',
+              name: 'Other',
+              priceCents: 5000,
+              quantity: 1,
+              assignedTo: [b.id],
+              excludeFromTaxTip: true,
+            },
+          ],
+          taxCents: 100,
+          tipCents: 0,
+          payments: [
+            { personId: a.id, amountCents: 5050 },
+            { personId: b.id, amountCents: 5050 },
+          ],
+        },
+      ],
+    )
+    const balances = computeBalances(session)
+    expect(balances.find((x) => x.personId === a.id)!.owedCents).toBe(5050)
+    expect(balances.find((x) => x.personId === b.id)!.owedCents).toBe(5050)
+  })
+
   it('returns no settlements for an empty or balanced session', () => {
     const [a, b] = makePeople('A', 'B')
     const session = buildSession([a, b], [])
