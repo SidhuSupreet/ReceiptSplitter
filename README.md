@@ -57,7 +57,7 @@ npm install
 
 # 3) Configure environment
 cp .env.example .env.local            # fill in VITE_GOOGLE_CLIENT_ID
-cp worker/.dev.vars.example worker/.dev.vars  # fill in ANTHROPIC_API_KEY
+cp worker/.dev.vars.example worker/.dev.vars  # fill in ANTHROPIC_API_KEY, GOOGLE_SERVICE_ACCOUNT_JSON (one-line JSON), SPLITS_SPREADSHEET_ID for short links
 
 # 4) Edit worker/wrangler.toml and set
 #    GOOGLE_CLIENT_ID, ALLOWED_EMAILS (your address), and ALLOWED_ORIGINS

@@ -2,7 +2,7 @@ import type { Session } from '@/features/session/types'
 
 export const SHARE_URL_WARNING_THRESHOLD = 1800
 
-type SerializableSession = Omit<Session, 'receipts'> & {
+export type WireSession = Omit<Session, 'receipts'> & {
   receipts: Array<Omit<Session['receipts'][number], 'imageDataUrl'>>
 }
 
@@ -12,11 +12,8 @@ export type ShareDecodeResult =
   | { ok: true; session: Session }
   | { ok: false; error: ShareDecodeError }
 
-/**
- * Strips heavy fields (image data URLs) before encoding so share links stay
- * within URL length limits.
- */
-function toSerializable(session: Session): SerializableSession {
+/** Strips receipt images for links and API payloads. */
+export function sessionForWire(session: Session): WireSession {
   return {
     ...session,
     receipts: session.receipts.map((receipt) => {
@@ -28,7 +25,7 @@ function toSerializable(session: Session): SerializableSession {
 }
 
 export function encodeSessionParam(session: Session): string {
-  const json = JSON.stringify(toSerializable(session))
+  const json = JSON.stringify(sessionForWire(session))
   return btoa(encodeURIComponent(json))
 }
 
@@ -38,6 +35,14 @@ export function buildShareUrl(session: Session, origin?: string): string {
   // Trim trailing slash from BASE_URL so the joined path doesn't double up.
   const basePath = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')
   return `${resolvedOrigin}${basePath}/#/session/${session.id}?data=${encodeSessionParam(session)}`
+}
+
+/** Short link: loads session from Worker / Sheets by `shareId` (no `?data=`). */
+export function buildShortShareUrl(shareId: string, origin?: string): string {
+  const resolvedOrigin =
+    origin ?? (typeof window !== 'undefined' ? window.location.origin : '')
+  const basePath = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')
+  return `${resolvedOrigin}${basePath}/#/session/${encodeURIComponent(shareId)}`
 }
 
 function isSession(value: unknown): value is Session {

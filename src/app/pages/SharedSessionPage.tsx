@@ -1,32 +1,75 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { ReadOnlyReceiptCard } from '@/features/receipts/ReadOnlyReceiptCard'
 import type { Session } from '@/features/session/types'
 import { SettlementPanel } from '@/features/settlement/SettlementPanel'
 import { decodeSessionParam } from '@/features/sharing/shareEncoding'
+import { fetchSharedSession } from '@/features/sharing/splitsApi'
 import { Button } from '@/shared/components/ui/button'
 import { Card, CardContent } from '@/shared/components/ui/card'
 
 export function SharedSessionPage() {
+  const { id: pathId } = useParams<{ id: string }>()
   const [params] = useSearchParams()
   const data = params.get('data')
 
-  if (!data) {
-    return <SharedError reason="No share data provided." />
+  if (data) {
+    const decoded = decodeSessionParam(data)
+    if (!decoded.ok) {
+      const message =
+        decoded.error.type === 'malformed'
+          ? 'This share link looks corrupted.'
+          : 'This share link doesn’t contain a valid session.'
+      return <SharedError reason={message} />
+    }
+    return <SharedSessionView session={decoded.session} />
   }
 
-  const decoded = decodeSessionParam(data)
-  if (!decoded.ok) {
-    const message =
-      decoded.error.type === 'malformed'
-        ? 'This share link looks corrupted.'
-        : 'This share link doesn’t contain a valid session.'
-    return <SharedError reason={message} />
+  if (!pathId?.trim()) {
+    return <SharedError reason="No share data or id provided." />
   }
 
-  const session = decoded.session
+  const shareId = pathId.trim()
+  return <FetchedSharedSession key={shareId} shareId={shareId} />
+}
 
+function FetchedSharedSession({ shareId }: { shareId: string }) {
+  const [state, setState] = useState<
+    | { status: 'loading' }
+    | { status: 'ok'; session: Session }
+    | { status: 'error'; message: string }
+  >({ status: 'loading' })
+
+  useEffect(() => {
+    let cancelled = false
+    fetchSharedSession(shareId).then((result) => {
+      if (cancelled) return
+      if (result.ok) setState({ status: 'ok', session: result.session })
+      else setState({ status: 'error', message: result.error })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [shareId])
+
+  if (state.status === 'loading') {
+    return (
+      <div className="mx-auto max-w-md px-6 py-16 text-center">
+        <p className="text-sm text-(--color-muted-foreground)">Loading shared split…</p>
+      </div>
+    )
+  }
+
+  if (state.status === 'error') {
+    return <SharedError reason={state.message} />
+  }
+
+  return <SharedSessionView session={state.session} />
+}
+
+function SharedSessionView({ session }: { session: Session }) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 lg:py-10">
       <SharedSummary session={session} />

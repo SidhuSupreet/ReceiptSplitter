@@ -1,1 +1,13 @@
+# Local secrets for `wrangler dev` (copy to `.dev.vars` — never commit `.dev.vars`)
+#
+#   cp worker/.dev.vars.example worker/.dev.vars
+
 ANTHROPIC_API_KEY=sk-ant-...
+
+# Full service account JSON on ONE line (minify with: jq -c < key.json)
+# Example: GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...",...}
+GOOGLE_SERVICE_ACCOUNT_JSON=
+
+# From the spreadsheet URL: https://docs.google.com/spreadsheets/d/<THIS_PART>/edit
+# Share that sheet with the service account email (Editor).
+SPLITS_SPREADSHEET_ID=
