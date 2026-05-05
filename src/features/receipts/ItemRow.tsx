@@ -5,7 +5,9 @@ import type { LineItem } from '@/features/session/types'
 import { useSession } from '@/features/session/useSession'
 import { MoneyInput } from '@/shared/components/MoneyInput'
 import { Button } from '@/shared/components/ui/button'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
 import { cn } from '@/shared/utils/cn'
 import { formatCents } from '@/shared/utils/money'
 
@@ -140,6 +142,29 @@ export function ItemRow({ item, receiptId, readOnly = false }: ItemRowProps) {
           {formatCents(lineTotal)}
         </span>
       </div>
+
+      {!readOnly ? (
+        <div className="mt-3 flex items-center gap-2">
+          <Checkbox
+            id={`exclude-tax-tip-${item.id}`}
+            checked={item.excludeFromTaxTip === true}
+            onCheckedChange={(checked) =>
+              dispatch({
+                type: 'UPDATE_ITEM',
+                receiptId,
+                itemId: item.id,
+                patch: { excludeFromTaxTip: checked === true },
+              })
+            }
+          />
+          <Label
+            htmlFor={`exclude-tax-tip-${item.id}`}
+            className="cursor-pointer text-xs font-normal text-(--color-muted-foreground)"
+          >
+            Off bill — not part of tax/tip split
+          </Label>
+        </div>
+      ) : null}
     </div>
   )
 }

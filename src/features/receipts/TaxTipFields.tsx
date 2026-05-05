@@ -13,7 +13,14 @@ export function TaxTipFields({ receipt, readOnly = false }: TaxTipFieldsProps) {
   const { dispatch } = useSession()
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-3">
+      {!readOnly ? (
+        <p className="text-xs text-(--color-muted-foreground)">
+          Tax and tip are shared by each person’s on-bill items. Mark a line “off bill” to
+          split it without counting toward that share.
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
           <Label htmlFor={`tax-${receipt.id}`}>Tax</Label>
@@ -65,6 +72,7 @@ export function TaxTipFields({ receipt, readOnly = false }: TaxTipFieldsProps) {
             dispatch({ type: 'SET_TIP', receiptId: receipt.id, tipCents })
           }
         />
+      </div>
       </div>
     </div>
   )

@@ -64,6 +64,7 @@ function createEmptyReceipt(
     priceCents: item.priceCents ?? 0,
     quantity: item.quantity ?? 1,
     assignedTo: item.assignedTo ?? [],
+    excludeFromTaxTip: item.excludeFromTaxTip ?? false,
   }))
   return {
     id,
@@ -84,6 +85,7 @@ function createEmptyItem(receiptId: string, input: Partial<LineItem> = {}): Line
     priceCents: input.priceCents ?? 0,
     quantity: input.quantity ?? 1,
     assignedTo: input.assignedTo ?? [],
+    excludeFromTaxTip: input.excludeFromTaxTip ?? false,
   }
 }
 
