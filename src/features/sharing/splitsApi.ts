@@ -19,6 +19,15 @@ export type PublishSplitResult =
   | { ok: true; shareId: string }
   | { ok: false; error: string }
 
+/** Parse Worker JSON error body; includes `detail` when present (e.g. split storage 503). */
+function errorMessageFromResponseJson(json: unknown, fallback: string): string {
+  if (!json || typeof json !== 'object') return fallback
+  const o = json as { error?: unknown; detail?: unknown }
+  const err = typeof o.error === 'string' ? o.error : fallback
+  const det = typeof o.detail === 'string' ? o.detail : ''
+  return det ? `${err} — ${det}` : err
+}
+
 export async function publishSplit(
   session: Session,
   idToken: string,
@@ -49,8 +58,8 @@ export async function publishSplit(
 
   let message = `Server returned ${response.status}`
   try {
-    const json = (await response.json()) as { error?: string }
-    if (typeof json.error === 'string') message = json.error
+    const body = (await response.json()) as unknown
+    message = errorMessageFromResponseJson(body, message)
   } catch {
     /* ignore */
   }
@@ -85,8 +94,8 @@ export async function fetchSharedSession(shareId: string): Promise<FetchSharedSp
 
   let message = `Server returned ${response.status}`
   try {
-    const json = (await response.json()) as { error?: string }
-    if (typeof json.error === 'string') message = json.error
+    const body = (await response.json()) as unknown
+    message = errorMessageFromResponseJson(body, message)
   } catch {
     /* ignore */
   }
@@ -117,8 +126,8 @@ export async function listMySplits(idToken: string): Promise<ListSplitsResult> {
 
   let message = `Server returned ${response.status}`
   try {
-    const json = (await response.json()) as { error?: string }
-    if (typeof json.error === 'string') message = json.error
+    const body = (await response.json()) as unknown
+    message = errorMessageFromResponseJson(body, message)
   } catch {
     /* ignore */
   }

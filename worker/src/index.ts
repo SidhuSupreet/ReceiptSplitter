@@ -109,10 +109,23 @@ async function handleOcr(request: Request, env: Env, cors: Headers): Promise<Res
 }
 
 function splitsConfigured(env: Env): boolean {
-  return Boolean(
-    (env.SPLITS_SPREADSHEET_ID ?? '').trim() &&
-      (env.GOOGLE_SERVICE_ACCOUNT_JSON ?? '').trim(),
-  )
+  return splitStorageMisconfiguration(env) === null
+}
+
+/** If split storage cannot run, returns a human-readable reason for 503 responses. */
+function splitStorageMisconfiguration(env: Env): string | null {
+  if (!(env.SPLITS_SPREADSHEET_ID ?? '').trim()) {
+    return 'SPLITS_SPREADSHEET_ID is empty (set in wrangler.toml [vars], Cloudflare Worker Settings → Variables, or deploy with --var).'
+  }
+  if (!(env.GOOGLE_SERVICE_ACCOUNT_JSON ?? '').trim()) {
+    return 'GOOGLE_SERVICE_ACCOUNT_JSON is missing (wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON, or add to CI secrets).'
+  }
+  return null
+}
+
+function jsonSplitStorageMisconfigured(env: Env, cors: Headers): Response {
+  const detail = splitStorageMisconfiguration(env) ?? 'unknown'
+  return json({ error: 'Split storage is not configured', detail }, 503, cors)
 }
 
 function splitsStore(env: Env): SplitsStore {
@@ -128,7 +141,7 @@ async function handleCreateSplit(
   cors: Headers,
 ): Promise<Response> {
   if (!splitsConfigured(env)) {
-    return json({ error: 'Split storage is not configured' }, 503, cors)
+    return jsonSplitStorageMisconfigured(env, cors)
   }
   if (!env.GOOGLE_CLIENT_ID) {
     return json({ error: 'GOOGLE_CLIENT_ID is not set' }, 503, cors)
@@ -183,7 +196,7 @@ async function handleCreateSplit(
 
 async function handleGetSplit(shareId: string, env: Env, cors: Headers): Promise<Response> {
   if (!splitsConfigured(env)) {
-    return json({ error: 'Split storage is not configured' }, 503, cors)
+    return jsonSplitStorageMisconfigured(env, cors)
   }
 
   let session
@@ -207,7 +220,7 @@ async function handleListSplits(
   cors: Headers,
 ): Promise<Response> {
   if (!splitsConfigured(env)) {
-    return json({ error: 'Split storage is not configured' }, 503, cors)
+    return jsonSplitStorageMisconfigured(env, cors)
   }
   if (!env.GOOGLE_CLIENT_ID) {
     return json({ error: 'GOOGLE_CLIENT_ID is not set' }, 503, cors)

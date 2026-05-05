@@ -10,7 +10,8 @@ GOOGLE_CLIENT_ID = "83580572408-mc52ogekctjdmg8tv87cksbp8dn25r2r.apps.googleuser
 ALLOWED_EMAILS = "sidhusupreet0@gmail.com"
 # Comma-separated list. Used for CORS Access-Control-Allow-Origin matching.
 ALLOWED_ORIGINS = "http://localhost:5173,https://sidhusupreet.github.io"
-# Google Sheet for stored splits (shareId column etc.). Leave empty until configured.
+# Google Sheet for stored splits. For production, set GitHub secret SPLITS_SPREADSHEET_ID
+# (see deploy-worker.yml --var) or put the id here. Empty disables short-link storage.
 SPLITS_SPREADSHEET_ID = ""
 SPLITS_TAB_NAME = "splits"
-# Set via: wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
+# GOOGLE_SERVICE_ACCOUNT_JSON: wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON (and CI secret)

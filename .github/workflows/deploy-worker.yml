@@ -41,9 +41,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
-          # Push the Anthropic key as a Worker secret. It'll be read in the
-          # Worker as env.ANTHROPIC_API_KEY at runtime.
+          # Plain-text var at deploy time (also set SPLITS_SPREADSHEET_ID in wrangler.toml for local dev).
+          command: deploy --var SPLITS_SPREADSHEET_ID:${{ secrets.SPLITS_SPREADSHEET_ID }}
           secrets: |
             ANTHROPIC_API_KEY
+            GOOGLE_SERVICE_ACCOUNT_JSON
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
