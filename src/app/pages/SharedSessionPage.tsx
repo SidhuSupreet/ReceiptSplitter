@@ -1,6 +1,8 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Pencil, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+
+import { useAuth } from '@/features/auth/AuthProvider'
 
 import { ReadOnlyReceiptCard } from '@/features/receipts/ReadOnlyReceiptCard'
 import type { Session } from '@/features/session/types'
@@ -36,23 +38,25 @@ export function SharedSessionPage() {
 }
 
 function FetchedSharedSession({ shareId }: { shareId: string }) {
+  const { idToken } = useAuth()
   const [state, setState] = useState<
     | { status: 'loading' }
-    | { status: 'ok'; session: Session }
+    | { status: 'ok'; session: Session; isOwner: boolean }
     | { status: 'error'; message: string }
   >({ status: 'loading' })
 
   useEffect(() => {
     let cancelled = false
-    fetchSharedSession(shareId).then((result) => {
+    void fetchSharedSession(shareId, idToken).then((result) => {
       if (cancelled) return
-      if (result.ok) setState({ status: 'ok', session: result.session })
+      if (result.ok)
+        setState({ status: 'ok', session: result.session, isOwner: result.isOwner })
       else setState({ status: 'error', message: result.error })
     })
     return () => {
       cancelled = true
     }
-  }, [shareId])
+  }, [shareId, idToken])
 
   if (state.status === 'loading') {
     return (
@@ -66,13 +70,43 @@ function FetchedSharedSession({ shareId }: { shareId: string }) {
     return <SharedError reason={state.message} />
   }
 
-  return <SharedSessionView session={state.session} />
+  return (
+    <SharedSessionView
+      session={state.session}
+      shareId={shareId}
+      showOwnerEdit={state.isOwner}
+    />
+  )
 }
 
-function SharedSessionView({ session }: { session: Session }) {
+function SharedSessionView({
+  session,
+  shareId,
+  showOwnerEdit,
+}: {
+  session: Session
+  /** Present for cloud-backed shares; used for the owner edit link. */
+  shareId?: string
+  showOwnerEdit?: boolean
+}) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 lg:py-10">
       <SharedSummary session={session} />
+      {showOwnerEdit && shareId ? (
+        <div className="flex justify-end">
+          <Button variant="secondary" size="sm" asChild>
+            <Link
+              to={{
+                pathname: '/',
+                search: `?share=${encodeURIComponent(shareId)}`,
+              }}
+            >
+              <Pencil className="size-4" />
+              Edit this split
+            </Link>
+          </Button>
+        </div>
+      ) : null}
       <SettlementPanel session={session} />
       {session.receipts.length > 0 ? (
         <section className="space-y-4">

@@ -76,20 +76,70 @@ export class SplitsStore {
     })
     if (!res.ok) {
       const text = await res.text()
-      throw new Error(`Sheets append failed: ${res.status} ${text}`)
+      let hint = ''
+      if (res.status === 400 && text.includes('Unable to parse range')) {
+        hint =
+          ' Check that a worksheet tab exists whose name matches SPLITS_TAB_NAME exactly (case-sensitive). Default is "splits"; if your tab is "Sheet1", set SPLITS_TAB_NAME=Sheet1.'
+      }
+      throw new Error(`Sheets append failed: ${res.status} ${text}${hint}`)
     }
   }
 
-  async getSessionByShareId(shareId: string): Promise<Session | null> {
+  /** Session and ownerSub (sheet column B) for a share id, or null if missing. */
+  async getShareData(
+    shareId: string,
+  ): Promise<{ session: Session; ownerSub: string } | null> {
     const rows = await this.readAllDataRows()
     for (const row of rows) {
       const id = row[0]?.trim()
-      if (id === shareId) {
-        const cell = row[4] ?? ''
-        return decodePayloadFromSheet(typeof cell === 'string' ? cell : String(cell))
-      }
+      if (id !== shareId) continue
+      const ownerSub = (row[1] ?? '').trim()
+      const cell = row[4] ?? ''
+      const session = await decodePayloadFromSheet(
+        typeof cell === 'string' ? cell : String(cell),
+      )
+      if (!session) return null
+      return { session, ownerSub }
     }
     return null
+  }
+
+  async getSessionByShareId(shareId: string): Promise<Session | null> {
+    const data = await this.getShareData(shareId)
+    return data?.session ?? null
+  }
+
+  /**
+   * Overwrite payload for an existing row. `editorSub` must match column B and B must be non-empty.
+   */
+  async updateSplitPayload(shareId: string, editorSub: string, session: Session): Promise<void> {
+    const rows = await this.readAllDataRows()
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (row[0]?.trim() !== shareId) continue
+      const ownerSub = (row[1] ?? '').trim()
+      if (!ownerSub) throw new SplitUpdateForbiddenError('guest')
+      if (ownerSub !== editorSub) throw new SplitUpdateForbiddenError('not_owner')
+      const sheetRow = i + 2
+      const stripped = stripSessionImages(session)
+      const payload = await encodePayloadForSheet(stripped)
+      if (payload.length > MAX_CELL_CHARS) {
+        throw new PayloadTooLargeError()
+      }
+      const range = this.a1Range(`E${sheetRow}`)
+      const urlPath = `/values/${encodeURIComponent(range)}?valueInputOption=RAW`
+      const res = await this.sheetsFetch(urlPath, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ values: [[payload]] }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Sheets update failed: ${res.status} ${text}`)
+      }
+      return
+    }
+    throw new SplitNotFoundError()
   }
 
   async listMetaForOwner(ownerSub: string): Promise<SplitMeta[]> {
@@ -123,6 +173,20 @@ export class PayloadTooLargeError extends Error {
   constructor() {
     super('Payload exceeds Google Sheets cell limit after compression')
     this.name = 'PayloadTooLargeError'
+  }
+}
+
+export class SplitNotFoundError extends Error {
+  constructor() {
+    super('Split not found')
+    this.name = 'SplitNotFoundError'
+  }
+}
+
+export class SplitUpdateForbiddenError extends Error {
+  constructor(public readonly reason: 'guest' | 'not_owner') {
+    super(reason === 'guest' ? 'Cannot update a guest split' : 'Not allowed to update this split')
+    this.name = 'SplitUpdateForbiddenError'
   }
 }
 

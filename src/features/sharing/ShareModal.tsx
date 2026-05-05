@@ -1,6 +1,6 @@
-import { Check, Copy, Link2, QrCode, Share2, TriangleAlert } from 'lucide-react'
+import { Check, Copy, QrCode, Share2 } from 'lucide-react'
 import QRCode from 'qrcode'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { useAuth } from '@/features/auth/AuthProvider'
 import type { Session } from '@/features/session/types'
@@ -16,12 +16,9 @@ import {
 import { Input } from '@/shared/components/ui/input'
 import { useToast } from '@/shared/components/ui/toaster'
 
-import {
-  buildShareUrl,
-  buildShortShareUrl,
-  SHARE_URL_WARNING_THRESHOLD,
-} from './shareEncoding'
-import { publishSplit } from './splitsApi'
+import { useCloudShare } from './cloudShare'
+import { buildShortShareUrl } from './shareEncoding'
+import { saveCloudSplit } from './splitsApi'
 
 type ShareModalProps = {
   session: Session
@@ -30,26 +27,59 @@ type ShareModalProps = {
 
 export function ShareModal({ session, trigger }: ShareModalProps) {
   const [open, setOpen] = useState(false)
-  const classicUrl = useMemo(() => buildShareUrl(session), [session])
-  /** When set, the modal shows a cloud short link instead of the classic data URL. */
-  const [shortShareId, setShortShareId] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [syncState, setSyncState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
-  const { configured, user, idToken } = useAuth()
-
-  const displayUrl = shortShareId ? buildShortShareUrl(shortShareId) : classicUrl
+  const { idToken } = useAuth()
+  const { cloudShareId, setCloudShareId } = useCloudShare()
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+  const cloudShareIdRef = useRef(cloudShareId)
+  cloudShareIdRef.current = cloudShareId
 
   useEffect(() => {
-    void Promise.resolve().then(() => setShortShareId(null))
-  }, [classicUrl])
+    if (!open) {
+      setShareUrl(null)
+      setSyncState('idle')
+      setSyncError(null)
+      return
+    }
 
-  const oversizeClassic = classicUrl.length > SHARE_URL_WARNING_THRESHOLD
-  const usingShort = shortShareId !== null
+    const s = sessionRef.current
+    const binding = cloudShareIdRef.current
+    let cancelled = false
+    setSyncState('loading')
+    setSyncError(null)
+    setShareUrl(null)
+
+    void saveCloudSplit(s, idToken, binding).then((result) => {
+      if (cancelled) return
+      if (!result.ok) {
+        setSyncState('error')
+        setSyncError(result.error)
+        toast({
+          title: 'Could not save share link',
+          description: result.error,
+          variant: 'destructive',
+        })
+        return
+      }
+      setCloudShareId(result.shareId)
+      setShareUrl(buildShortShareUrl(result.shareId))
+      setSyncState('idle')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, idToken, setCloudShareId, toast])
 
   async function handleCopy() {
+    if (!shareUrl) return
     try {
-      await navigator.clipboard.writeText(displayUrl)
+      await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
       toast({ title: 'Link copied' })
       setTimeout(() => setCopied(false), 1600)
@@ -62,29 +92,7 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
     }
   }
 
-  async function handleShortLink() {
-    if (!idToken) {
-      toast({
-        title: 'Sign in required',
-        description: 'Short links save a copy to the cloud — sign in with Google first.',
-        variant: 'destructive',
-      })
-      return
-    }
-    setPublishing(true)
-    const result = await publishSplit(session, idToken)
-    setPublishing(false)
-    if (result.ok) {
-      setShortShareId(result.shareId)
-      toast({ title: 'Short link ready' })
-    } else {
-      toast({
-        title: 'Could not create short link',
-        description: result.error,
-        variant: 'destructive',
-      })
-    }
-  }
+  const loading = open && syncState === 'loading'
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -103,66 +111,41 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
             Share this split
           </DialogTitle>
           <DialogDescription>
-            Anyone with this link can view the full breakdown. Re-share after editing.
+            Short links load from your app backend. Sharing saves the current session first.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
-          {open ? <ShareQRCode value={displayUrl} /> : null}
+          {open ? (
+            loading ? (
+              <div className="flex h-48 w-48 items-center justify-center rounded-lg border border-(--color-border) text-sm text-(--color-muted-foreground)">
+                Preparing link…
+              </div>
+            ) : shareUrl ? (
+              <ShareQRCode value={shareUrl} />
+            ) : syncState === 'error' ? (
+              <div className="flex min-h-48 w-full items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-4 text-center text-sm text-destructive">
+                {syncError ?? 'Something went wrong'}
+              </div>
+            ) : null
+          ) : null}
+
           <div className="flex w-full gap-2">
-            <Input readOnly value={displayUrl} className="font-mono text-xs" />
-            <Button onClick={handleCopy} variant={copied ? 'secondary' : 'default'}>
+            <Input
+              readOnly
+              value={shareUrl ?? ''}
+              placeholder={loading ? 'Saving…' : syncState === 'error' ? '' : '—'}
+              className="font-mono text-xs"
+            />
+            <Button
+              onClick={handleCopy}
+              variant={copied ? 'secondary' : 'default'}
+              disabled={!shareUrl}
+            >
               {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
               {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
-
-          {configured && user && idToken ? (
-            <div className="flex w-full flex-col gap-2">
-              {!usingShort ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  disabled={publishing}
-                  onClick={handleShortLink}
-                >
-                  <Link2 className="size-4" />
-                  {publishing ? 'Saving…' : 'Create short link (save to cloud)'}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setShortShareId(null)}
-                >
-                  Show classic link instead
-                </Button>
-              )}
-              <p className="text-xs text-(--color-muted-foreground)">
-                Short links load from your app backend — keep your Google Sheet backed up
-                if you rely on them.
-              </p>
-            </div>
-          ) : configured && !user ? (
-            <p className="text-xs text-(--color-muted-foreground)">
-              Sign in with Google to create a short link that doesn’t paste the whole bill
-              into the URL.
-            </p>
-          ) : null}
-
-          {oversizeClassic && !usingShort ? (
-            <div className="flex w-full items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
-              <TriangleAlert className="size-4 shrink-0" />
-              <span>
-                This link is long ({classicUrl.length.toLocaleString()} characters) and may
-                not work everywhere. Sign in and use a short link, or share a screenshot.
-              </span>
-            </div>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,6 @@
-import { ExternalLink, History, Loader2, LogOut, User } from 'lucide-react'
+import { ExternalLink, History, Loader2, LogOut, Pencil, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/features/auth/AuthProvider'
 import { buildShortShareUrl } from '@/features/sharing/shareEncoding'
@@ -98,7 +98,7 @@ function PastSplitsDialog({
         </DialogHeader>
 
         {open && idToken ? (
-          <PastSplitsList idToken={idToken} />
+          <PastSplitsList idToken={idToken} onNavigate={() => onOpenChange(false)} />
         ) : (
           <p className="text-sm text-(--color-muted-foreground)">Sign in to load your list.</p>
         )}
@@ -113,7 +113,14 @@ function PastSplitsDialog({
   )
 }
 
-function PastSplitsList({ idToken }: { idToken: string }) {
+function PastSplitsList({
+  idToken,
+  onNavigate,
+}: {
+  idToken: string
+  onNavigate: () => void
+}) {
+  const navigate = useNavigate()
   const [state, setState] = useState<
     | { status: 'loading' }
     | { status: 'ok'; splits: SavedSplitMeta[] }
@@ -148,7 +155,7 @@ function PastSplitsList({ idToken }: { idToken: string }) {
   if (state.splits.length === 0) {
     return (
       <p className="text-sm text-(--color-muted-foreground)">
-        No saved splits yet. Share a session and choose “Create short link”.
+        No saved splits yet. Share a session to save it to the cloud.
       </p>
     )
   }
@@ -168,16 +175,33 @@ function PastSplitsList({ idToken }: { idToken: string }) {
               {new Date(s.createdAt).toLocaleString()}
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0" asChild>
-            <a
-              href={buildShortShareUrl(s.shareId)}
-              target="_blank"
-              rel="noreferrer"
-              title="Open in new tab"
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              title="Edit in app"
+              onClick={() => {
+                navigate({
+                  pathname: '/',
+                  search: `?share=${encodeURIComponent(s.shareId)}`,
+                })
+                onNavigate()
+              }}
             >
-              <ExternalLink className="size-4" />
-            </a>
-          </Button>
+              <Pencil className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="shrink-0" asChild>
+              <a
+                href={buildShortShareUrl(s.shareId)}
+                target="_blank"
+                rel="noreferrer"
+                title="Open in new tab"
+              >
+                <ExternalLink className="size-4" />
+              </a>
+            </Button>
+          </div>
         </li>
       ))}
     </ul>

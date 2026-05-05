@@ -1,10 +1,18 @@
 import { parseWithClaude } from './anthropic'
-import { assertEmailAllowed, AuthError, extractBearer, verifyGoogleIdToken } from './auth'
+import {
+  assertEmailAllowed,
+  AuthError,
+  extractBearer,
+  extractBearerOptional,
+  verifyGoogleIdToken,
+} from './auth'
 import {
   newShareId,
   normalizeIncomingSession,
   PayloadTooLargeError,
+  SplitNotFoundError,
   SplitsStore,
+  SplitUpdateForbiddenError,
 } from './splitsStore'
 
 export interface Env {
@@ -54,7 +62,10 @@ export default {
     if (path.startsWith('/splits/')) {
       const shareId = decodeURIComponent(path.slice('/splits/'.length))
       if (shareId && request.method === 'GET') {
-        return handleGetSplit(shareId, env, cors)
+        return handleGetSplit(request, shareId, env, cors)
+      }
+      if (shareId && request.method === 'PUT') {
+        return handleUpdateSplit(request, shareId, env, cors)
       }
     }
 
@@ -143,6 +154,107 @@ async function handleCreateSplit(
   if (!splitsConfigured(env)) {
     return jsonSplitStorageMisconfigured(env, cors)
   }
+
+  const token = extractBearerOptional(request.headers)
+  let ownerSub = ''
+  let ownerEmail = 'Anonymous'
+
+  if (token) {
+    if (!env.GOOGLE_CLIENT_ID) {
+      return json({ error: 'GOOGLE_CLIENT_ID is not set' }, 503, cors)
+    }
+    let user
+    try {
+      user = await verifyGoogleIdToken(token, env.GOOGLE_CLIENT_ID)
+      assertEmailAllowed(user, env.ALLOWED_EMAILS ?? '')
+    } catch (err) {
+      return authErrorResponse(err, cors)
+    }
+    if (!user.sub) {
+      return json({ error: 'Invalid token: missing subject' }, 401, cors)
+    }
+    ownerSub = user.sub
+    ownerEmail = user.email
+  }
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON body' }, 400, cors)
+  }
+
+  const session = normalizeIncomingSession(body)
+  if (!session) {
+    return json({ error: 'Body must be a valid session object' }, 400, cors)
+  }
+
+  const store = splitsStore(env)
+  const shareId = newShareId()
+
+  try {
+    await store.appendSplit(shareId, ownerSub, ownerEmail, session)
+  } catch (err) {
+    if (err instanceof PayloadTooLargeError) {
+      return json({ error: err.message }, 413, cors)
+    }
+    const message = err instanceof Error ? err.message : 'save failed'
+    return json({ error: message }, 502, cors)
+  }
+
+  return json({ shareId }, 201, cors)
+}
+
+async function handleGetSplit(
+  request: Request,
+  shareId: string,
+  env: Env,
+  cors: Headers,
+): Promise<Response> {
+  if (!splitsConfigured(env)) {
+    return jsonSplitStorageMisconfigured(env, cors)
+  }
+
+  let data: Awaited<ReturnType<SplitsStore['getShareData']>>
+  try {
+    data = await splitsStore(env).getShareData(shareId)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'load failed'
+    return json({ error: message }, 502, cors)
+  }
+
+  if (!data) {
+    return json({ error: 'Not found' }, 404, cors)
+  }
+
+  let isOwner = false
+  const optional = extractBearerOptional(request.headers)
+  if (optional) {
+    if (!env.GOOGLE_CLIENT_ID) {
+      return json({ error: 'GOOGLE_CLIENT_ID is not set' }, 503, cors)
+    }
+    try {
+      const user = await verifyGoogleIdToken(optional, env.GOOGLE_CLIENT_ID)
+      if (user.sub && data.ownerSub && user.sub === data.ownerSub) {
+        isOwner = true
+      }
+    } catch (err) {
+      return authErrorResponse(err, cors)
+    }
+  }
+
+  return json({ session: data.session, isOwner }, 200, cors)
+}
+
+async function handleUpdateSplit(
+  request: Request,
+  shareId: string,
+  env: Env,
+  cors: Headers,
+): Promise<Response> {
+  if (!splitsConfigured(env)) {
+    return jsonSplitStorageMisconfigured(env, cors)
+  }
   if (!env.GOOGLE_CLIENT_ID) {
     return json({ error: 'GOOGLE_CLIENT_ID is not set' }, 503, cors)
   }
@@ -178,40 +290,23 @@ async function handleCreateSplit(
     return json({ error: 'Body must be a valid session object' }, 400, cors)
   }
 
-  const store = splitsStore(env)
-  const shareId = newShareId()
-
   try {
-    await store.appendSplit(shareId, user.sub, user.email, session)
+    await splitsStore(env).updateSplitPayload(shareId, user.sub, session)
   } catch (err) {
     if (err instanceof PayloadTooLargeError) {
       return json({ error: err.message }, 413, cors)
     }
-    const message = err instanceof Error ? err.message : 'save failed'
+    if (err instanceof SplitNotFoundError) {
+      return json({ error: 'Not found' }, 404, cors)
+    }
+    if (err instanceof SplitUpdateForbiddenError) {
+      return json({ error: err.message }, 403, cors)
+    }
+    const message = err instanceof Error ? err.message : 'update failed'
     return json({ error: message }, 502, cors)
   }
 
-  return json({ shareId }, 201, cors)
-}
-
-async function handleGetSplit(shareId: string, env: Env, cors: Headers): Promise<Response> {
-  if (!splitsConfigured(env)) {
-    return jsonSplitStorageMisconfigured(env, cors)
-  }
-
-  let session
-  try {
-    session = await splitsStore(env).getSessionByShareId(shareId)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'load failed'
-    return json({ error: message }, 502, cors)
-  }
-
-  if (!session) {
-    return json({ error: 'Not found' }, 404, cors)
-  }
-
-  return json({ session }, 200, cors)
+  return json({ ok: true }, 200, cors)
 }
 
 async function handleListSplits(
@@ -256,7 +351,7 @@ async function handleListSplits(
 
 function corsHeaders(request: Request, allowedOriginsRaw: string): Headers {
   const headers = new Headers({
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
     'access-control-allow-headers': 'authorization, content-type',
     'access-control-max-age': '86400',
     vary: 'Origin',

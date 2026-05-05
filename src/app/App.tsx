@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 
 import { SessionProvider } from '@/app/providers/SessionProvider'
+import { CloudShareProvider } from '@/features/sharing/cloudShare'
 import { Toaster } from '@/shared/components/ui/toaster'
 
 import { AppHeader } from './components/AppHeader'
@@ -10,7 +11,8 @@ import { SharedSessionPage } from './pages/SharedSessionPage'
 function App() {
   return (
     <SessionProvider>
-      <Toaster>
+      <CloudShareProvider>
+        <Toaster>
         <div className="flex min-h-full flex-col bg-(--color-background)">
           <AppHeader />
           <main className="flex-1">
@@ -20,7 +22,8 @@ function App() {
             </Routes>
           </main>
         </div>
-      </Toaster>
+        </Toaster>
+      </CloudShareProvider>
     </SessionProvider>
   )
 }

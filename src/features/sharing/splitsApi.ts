@@ -15,9 +15,11 @@ export type SavedSplitMeta = {
   createdAt: string
 }
 
-export type PublishSplitResult =
+export type CloudSplitMutationResult =
   | { ok: true; shareId: string }
   | { ok: false; error: string }
+
+export type CloudSplitUpdateResult = { ok: true } | { ok: false; error: string }
 
 /** Parse Worker JSON error body; includes `detail` when present (e.g. split storage 503). */
 function errorMessageFromResponseJson(json: unknown, fallback: string): string {
@@ -28,19 +30,20 @@ function errorMessageFromResponseJson(json: unknown, fallback: string): string {
   return det ? `${err} — ${det}` : err
 }
 
-export async function publishSplit(
+/** Create a new cloud-backed split (optional auth: signed-in rows are owned; guests are anonymous). */
+export async function createCloudSplit(
   session: Session,
-  idToken: string,
-): Promise<PublishSplitResult> {
+  idToken: string | null,
+): Promise<CloudSplitMutationResult> {
   const base = getWorkerOrigin()
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (idToken) headers.authorization = `Bearer ${idToken}`
+
   let response: Response
   try {
     response = await fetch(`${base}/splits`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${idToken}`,
-      },
+      headers,
       body: JSON.stringify(sessionForWire(session)),
     })
   } catch (err) {
@@ -66,26 +69,86 @@ export async function publishSplit(
   return { ok: false, error: message }
 }
 
-export type FetchSharedSplitResult =
-  | { ok: true; session: Session }
-  | { ok: false; error: string }
-
-export async function fetchSharedSession(shareId: string): Promise<FetchSharedSplitResult> {
+/** Update payload for an existing owned split. */
+export async function updateCloudSplit(
+  shareId: string,
+  session: Session,
+  idToken: string,
+): Promise<CloudSplitUpdateResult> {
   const base = getWorkerOrigin()
   let response: Response
   try {
-    response = await fetch(`${base}/splits/${encodeURIComponent(shareId)}`)
+    response = await fetch(`${base}/splits/${encodeURIComponent(shareId)}`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(sessionForWire(session)),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Network error'
+    return { ok: false, error: message }
+  }
+
+  if (response.ok) return { ok: true }
+
+  let message = `Server returned ${response.status}`
+  try {
+    const body = (await response.json()) as unknown
+    message = errorMessageFromResponseJson(body, message)
+  } catch {
+    /* ignore */
+  }
+  return { ok: false, error: message }
+}
+
+/**
+ * Persist session to the cloud: PUT when signed in and `cloudShareId` is set; otherwise POST (new id).
+ */
+export async function saveCloudSplit(
+  session: Session,
+  idToken: string | null,
+  cloudShareId: string | null,
+): Promise<CloudSplitMutationResult> {
+  if (idToken && cloudShareId) {
+    const u = await updateCloudSplit(cloudShareId, session, idToken)
+    if (!u.ok) return u
+    return { ok: true, shareId: cloudShareId }
+  }
+  return createCloudSplit(session, idToken)
+}
+
+export type FetchSharedSplitResult =
+  | { ok: true; session: Session; isOwner: boolean }
+  | { ok: false; error: string }
+
+export async function fetchSharedSession(
+  shareId: string,
+  idToken?: string | null,
+): Promise<FetchSharedSplitResult> {
+  const base = getWorkerOrigin()
+  const headers: Record<string, string> = {}
+  if (idToken) headers.authorization = `Bearer ${idToken}`
+
+  let response: Response
+  try {
+    response = await fetch(`${base}/splits/${encodeURIComponent(shareId)}`, { headers })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Network error'
     return { ok: false, error: message }
   }
 
   if (response.ok) {
-    const json = (await response.json()) as { session?: Session }
+    const json = (await response.json()) as {
+      session?: Session
+      isOwner?: unknown
+    }
     if (!json.session || typeof json.session !== 'object') {
       return { ok: false, error: 'Unexpected response from server' }
     }
-    return { ok: true, session: json.session as Session }
+    const isOwner = json.isOwner === true
+    return { ok: true, session: json.session as Session, isOwner }
   }
 
   if (response.status === 404) {
