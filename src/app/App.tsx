@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 
 import { SessionProvider } from '@/app/providers/SessionProvider'
-import { CloudShareProvider } from '@/features/sharing/cloudShare'
+import { CloudShareProvider } from '@/features/sharing/CloudShareProvider'
 import { Toaster } from '@/shared/components/ui/toaster'
 
 import { AppHeader } from './components/AppHeader'

@@ -16,9 +16,9 @@ import {
 import { Input } from '@/shared/components/ui/input'
 import { useToast } from '@/shared/components/ui/toaster'
 
-import { useCloudShare } from './cloudShare'
 import { buildShortShareUrl } from './shareEncoding'
 import { saveCloudSplit } from './splitsApi'
+import { useCloudShare } from './useCloudShare'
 
 type ShareModalProps = {
   session: Session
@@ -35,24 +35,36 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
   const { idToken } = useAuth()
   const { cloudShareId, setCloudShareId } = useCloudShare()
   const sessionRef = useRef(session)
-  sessionRef.current = session
   const cloudShareIdRef = useRef(cloudShareId)
-  cloudShareIdRef.current = cloudShareId
 
   useEffect(() => {
-    if (!open) {
+    sessionRef.current = session
+    cloudShareIdRef.current = cloudShareId
+  })
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
       setShareUrl(null)
       setSyncState('idle')
       setSyncError(null)
-      return
+      setCopied(false)
     }
+  }
+
+  useEffect(() => {
+    if (!open) return
 
     const s = sessionRef.current
     const binding = cloudShareIdRef.current
     let cancelled = false
-    setSyncState('loading')
-    setSyncError(null)
-    setShareUrl(null)
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setSyncState('loading')
+      setSyncError(null)
+      setShareUrl(null)
+    })
 
     void saveCloudSplit(s, idToken, binding).then((result) => {
       if (cancelled) return
@@ -95,7 +107,7 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
   const loading = open && syncState === 'loading'
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline" size="sm">

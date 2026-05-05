@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/features/auth/AuthProvider'
-
 import { ReadOnlyReceiptCard } from '@/features/receipts/ReadOnlyReceiptCard'
 import type { Session } from '@/features/session/types'
 import { SettlementPanel } from '@/features/settlement/SettlementPanel'
