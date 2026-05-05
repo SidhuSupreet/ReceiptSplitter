@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { SignInButton } from '@/features/auth/SignInButton'
 import { UserMenu } from '@/features/auth/UserMenu'
+import { ThemeToggle } from '@/features/theme/ThemeToggle'
 
 export function AppHeader() {
   const location = useLocation()
@@ -31,6 +32,7 @@ export function AppHeader() {
           <p className="hidden text-xs text-(--color-muted-foreground) sm:block">
             Settle group bills with no math
           </p>
+          <ThemeToggle />
           {configured ? user ? <UserMenu /> : <SignInButton size="medium" /> : null}
         </div>
       </div>

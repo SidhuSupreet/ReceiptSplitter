@@ -7,6 +7,7 @@ import { HashRouter } from 'react-router-dom'
 
 import App from '@/app/App'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { ThemeProvider } from '@/features/theme/ThemeProvider'
 
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Root element not found')
@@ -16,11 +17,13 @@ const authConfigured = Boolean(googleClientId)
 
 const tree = (
   <StrictMode>
-    <HashRouter>
-      <AuthProvider configured={authConfigured}>
-        <App />
-      </AuthProvider>
-    </HashRouter>
+    <ThemeProvider>
+      <HashRouter>
+        <AuthProvider configured={authConfigured}>
+          <App />
+        </AuthProvider>
+      </HashRouter>
+    </ThemeProvider>
   </StrictMode>
 )
 

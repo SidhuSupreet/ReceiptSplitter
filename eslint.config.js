@@ -47,7 +47,11 @@ export default defineConfig([
   },
   {
     // Context providers expose hook helpers alongside the provider component.
-    files: ['src/app/providers/**/*.{ts,tsx}', 'src/features/auth/AuthProvider.tsx'],
+    files: [
+      'src/app/providers/**/*.{ts,tsx}',
+      'src/features/auth/AuthProvider.tsx',
+      'src/features/theme/ThemeProvider.tsx',
+    ],
     rules: {
       'react-refresh/only-export-components': 'off',
     },
