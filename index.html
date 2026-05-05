@@ -12,6 +12,18 @@
     <link rel="preconnect" href="https://rsms.me/" />
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <title>Split — Expense Splitter</title>
+    <script>
+      ;(function () {
+        try {
+          var k = 'expense-splitter-theme'
+          var s = localStorage.getItem(k)
+          var dark =
+            s === 'dark' ||
+            (s !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
