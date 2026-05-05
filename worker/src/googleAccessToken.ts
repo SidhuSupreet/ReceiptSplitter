@@ -37,7 +37,7 @@ export async function getSheetsAccessToken(serviceAccountJsonRaw: string): Promi
   const assertion = await new SignJWT({ scope: SHEETS_SCOPE })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .setIssuedAt()
-    .setExpirationTime('now + 45m')
+    .setExpirationTime('45m')
     .setIssuer(sa.client_email)
     .setAudience(TOKEN_URL)
     .setSubject(sa.client_email)
