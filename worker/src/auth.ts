@@ -37,6 +37,14 @@ export function extractBearer(headers: Headers): string {
   return match[1]
 }
 
+/** Bearer token if present and well-formed; otherwise `null` (no throw). */
+export function extractBearerOptional(headers: Headers): string | null {
+  const raw = headers.get('authorization') ?? headers.get('Authorization')
+  if (!raw) return null
+  const match = /^Bearer\s+(.+)$/i.exec(raw.trim())
+  return match ? match[1] : null
+}
+
 /**
  * Verify a Google ID token's signature, issuer, audience, and expiry.
  *

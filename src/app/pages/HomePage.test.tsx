@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SessionProvider } from '@/app/providers/SessionProvider'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { CloudShareProvider } from '@/features/sharing/CloudShareProvider'
 import { Toaster } from '@/shared/components/ui/toaster'
 
 import { HomePage } from './HomePage'
@@ -14,9 +15,11 @@ function renderHome() {
     <MemoryRouter>
       <AuthProvider configured={false}>
         <SessionProvider>
-          <Toaster>
-            <HomePage />
-          </Toaster>
+          <CloudShareProvider>
+            <Toaster>
+              <HomePage />
+            </Toaster>
+          </CloudShareProvider>
         </SessionProvider>
       </AuthProvider>
     </MemoryRouter>,

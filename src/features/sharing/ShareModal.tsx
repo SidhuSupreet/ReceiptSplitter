@@ -1,7 +1,8 @@
-import { Check, Copy, QrCode, Share2, TriangleAlert } from 'lucide-react'
+import { Check, Copy, QrCode, Share2 } from 'lucide-react'
 import QRCode from 'qrcode'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { useAuth } from '@/features/auth/AuthProvider'
 import type { Session } from '@/features/session/types'
 import { Button } from '@/shared/components/ui/button'
 import {
@@ -15,7 +16,9 @@ import {
 import { Input } from '@/shared/components/ui/input'
 import { useToast } from '@/shared/components/ui/toaster'
 
-import { buildShareUrl, SHARE_URL_WARNING_THRESHOLD } from './shareEncoding'
+import { buildShortShareUrl } from './shareEncoding'
+import { saveCloudSplit } from './splitsApi'
+import { useCloudShare } from './useCloudShare'
 
 type ShareModalProps = {
   session: Session
@@ -24,14 +27,71 @@ type ShareModalProps = {
 
 export function ShareModal({ session, trigger }: ShareModalProps) {
   const [open, setOpen] = useState(false)
-  const url = useMemo(() => buildShareUrl(session), [session])
-  const oversize = url.length > SHARE_URL_WARNING_THRESHOLD
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [syncState, setSyncState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const { idToken } = useAuth()
+  const { cloudShareId, setCloudShareId } = useCloudShare()
+  const sessionRef = useRef(session)
+  const cloudShareIdRef = useRef(cloudShareId)
+
+  useEffect(() => {
+    sessionRef.current = session
+    cloudShareIdRef.current = cloudShareId
+  })
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setShareUrl(null)
+      setSyncState('idle')
+      setSyncError(null)
+      setCopied(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+
+    const s = sessionRef.current
+    const binding = cloudShareIdRef.current
+    let cancelled = false
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setSyncState('loading')
+      setSyncError(null)
+      setShareUrl(null)
+    })
+
+    void saveCloudSplit(s, idToken, binding).then((result) => {
+      if (cancelled) return
+      if (!result.ok) {
+        setSyncState('error')
+        setSyncError(result.error)
+        toast({
+          title: 'Could not save share link',
+          description: result.error,
+          variant: 'destructive',
+        })
+        return
+      }
+      setCloudShareId(result.shareId)
+      setShareUrl(buildShortShareUrl(result.shareId))
+      setSyncState('idle')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, idToken, setCloudShareId, toast])
 
   async function handleCopy() {
+    if (!shareUrl) return
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
       toast({ title: 'Link copied' })
       setTimeout(() => setCopied(false), 1600)
@@ -44,8 +104,10 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
     }
   }
 
+  const loading = open && syncState === 'loading'
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline" size="sm">
@@ -61,28 +123,41 @@ export function ShareModal({ session, trigger }: ShareModalProps) {
             Share this split
           </DialogTitle>
           <DialogDescription>
-            Anyone with this link can view the full breakdown. Re-share after editing.
+            Short links load from your app backend. Sharing saves the current session first.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
-          {open ? <ShareQRCode value={url} /> : null}
+          {open ? (
+            loading ? (
+              <div className="flex h-48 w-48 items-center justify-center rounded-lg border border-(--color-border) text-sm text-(--color-muted-foreground)">
+                Preparing link…
+              </div>
+            ) : shareUrl ? (
+              <ShareQRCode value={shareUrl} />
+            ) : syncState === 'error' ? (
+              <div className="flex min-h-48 w-full items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-4 text-center text-sm text-destructive">
+                {syncError ?? 'Something went wrong'}
+              </div>
+            ) : null
+          ) : null}
+
           <div className="flex w-full gap-2">
-            <Input readOnly value={url} className="font-mono text-xs" />
-            <Button onClick={handleCopy} variant={copied ? 'secondary' : 'default'}>
+            <Input
+              readOnly
+              value={shareUrl ?? ''}
+              placeholder={loading ? 'Saving…' : syncState === 'error' ? '' : '—'}
+              className="font-mono text-xs"
+            />
+            <Button
+              onClick={handleCopy}
+              variant={copied ? 'secondary' : 'default'}
+              disabled={!shareUrl}
+            >
               {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
               {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
-          {oversize ? (
-            <div className="flex w-full items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
-              <TriangleAlert className="size-4 shrink-0" />
-              <span>
-                This link is long ({url.length.toLocaleString()} characters) and may not
-                work everywhere. Consider sharing a screenshot of the settlement instead.
-              </span>
-            </div>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>

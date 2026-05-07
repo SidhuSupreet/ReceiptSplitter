@@ -57,7 +57,7 @@ npm install
 
 # 3) Configure environment
 cp .env.example .env.local            # fill in VITE_GOOGLE_CLIENT_ID
-cp worker/.dev.vars.example worker/.dev.vars  # fill in ANTHROPIC_API_KEY
+cp worker/.dev.vars.example worker/.dev.vars  # fill in ANTHROPIC_API_KEY, GOOGLE_SERVICE_ACCOUNT_JSON (one-line JSON), SPLITS_SPREADSHEET_ID for short links
 
 # 4) Edit worker/wrangler.toml and set
 #    GOOGLE_CLIENT_ID, ALLOWED_EMAILS (your address), and ALLOWED_ORIGINS
@@ -110,17 +110,18 @@ Settings → Pages → **Source: GitHub Actions**.
 
 Settings → Secrets and variables → Actions → **New repository secret**:
 
-| Secret name             | Value                                                     |
-| ----------------------- | --------------------------------------------------------- |
-| `VITE_GOOGLE_CLIENT_ID` | The OAuth Client ID from step 1                           |
-| `VITE_OCR_ENDPOINT`     | `https://expense-splitter-ocr.<sub>.workers.dev/ocr`      |
-| `CLOUDFLARE_API_TOKEN`  | The API token from step 2                                 |
-| `CLOUDFLARE_ACCOUNT_ID` | The account ID from step 2                                |
-| `ANTHROPIC_API_KEY`     | Your Anthropic key — pushed to the Worker on every deploy |
+| Secret name                    | Value                                                                 |
+| ------------------------------ | --------------------------------------------------------------------- |
+| `VITE_GOOGLE_CLIENT_ID`        | The OAuth Client ID from step 1                                      |
+| `VITE_OCR_ENDPOINT`             | `https://expense-splitter-ocr.<sub>.workers.dev/ocr`                 |
+| `CLOUDFLARE_API_TOKEN`          | The API token from step 2                                            |
+| `CLOUDFLARE_ACCOUNT_ID`        | The account ID from step 2                                           |
+| `ANTHROPIC_API_KEY`            | Anthropic key — stored as a Worker secret                            |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Entire service account JSON (one line) — Worker secret for Sheets    |
+| `SPLITS_SPREADSHEET_ID`        | Google Sheet id from the `/d/<id>/edit` URL — passed as Worker var    |
 
-> `VITE_*` values are baked into the public bundle — they are not secrets in
-> the cryptographic sense. `ANTHROPIC_API_KEY` is the only true secret here
-> and it never leaves the Worker runtime.
+> `VITE_*` values are baked into the public bundle. **`GOOGLE_SERVICE_ACCOUNT_JSON`**
+> and **`ANTHROPIC_API_KEY`** are Worker secrets and never appear in the SPA.
 
 #### 5. Push
 

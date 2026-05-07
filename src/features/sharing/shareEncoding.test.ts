@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import type { Session } from '@/features/session/types'
 
-import { buildShareUrl, decodeSessionParam, encodeSessionParam } from './shareEncoding'
+import {
+  buildShareUrl,
+  buildShortShareUrl,
+  decodeSessionParam,
+  encodeSessionParam,
+} from './shareEncoding'
 
 const baseSession: Session = {
   id: 'abc-123',
@@ -60,6 +65,11 @@ describe('shareEncoding', () => {
   it('builds a full share URL with the session id (hash routed)', () => {
     const url = buildShareUrl(baseSession, 'https://example.com')
     expect(url.startsWith('https://example.com/#/session/abc-123?data=')).toBe(true)
+  })
+
+  it('builds a short share URL from a stored share id', () => {
+    const url = buildShortShareUrl('xYzShortId9', 'https://example.com')
+    expect(url).toBe('https://example.com/#/session/xYzShortId9')
   })
 
   it('returns a typed error for malformed base64', () => {
